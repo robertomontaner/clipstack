@@ -2,33 +2,52 @@
 
 Gestor de portapapeles para macOS 13+ (texto e imágenes), en la barra de menú.
 
-## Instalar
-1. Descomprime el zip.
-2. Clic derecho en **Instalar ClipStack.command** → **Abrir** → **Abrir** (la primera vez macOS lo pide así).
-3. Si faltan las herramientas de Apple, se abre su instalador; cuando acabe, repite el paso 2.
+## Requisitos
+Herramientas de desarrollo de Apple (gratis). Si no las tienes, los scripts abren su instalador; también puedes ejecutar `xcode-select --install`.
 
-### Desbloqueo rápido (si macOS bloquea el instalador o la app)
-Pega esto en la Terminal (ajusta la ruta si no descomprimiste en Descargas):
+## Instalar
 ```bash
-xattr -cr ~/Downloads/ClipStack && ~/Downloads/ClipStack/"Instalar ClipStack.command"
+git clone https://github.com/robertomontaner/clipstack.git
+cd clipstack
 ```
-Y si la app ya instalada no abre:
+Después, en Finder, doble clic en uno de estos scripts:
+
+| Script | Qué hace |
+|---|---|
+| **Compilar DMG.command** | Compila y abre `build/ClipStack.dmg`. Arrastra ClipStack a Aplicaciones. |
+| **Instalar ClipStack.command** | Compila, sustituye la versión instalada y la abre. También deja el DMG en `build/`. |
+| **Desinstalar ClipStack.command** | Borra la app, el historial, los ajustes y el permiso de Accesibilidad. |
+
+Para actualizar: `git pull` y vuelve a ejecutar el instalador (o el DMG). No hace falta desinstalar antes.
+
+El DMG de `build/` sirve para pasar la app a otro Mac sin compilar.
+
+### Si macOS bloquea un script o la app
+Si te sale un aviso de seguridad, haz clic derecho → **Abrir**. Si sigue bloqueado:
+```bash
+xattr -cr ~/ruta/a/clipstack
+```
+Y si la app instalada no abre:
 ```bash
 xattr -cr /Applications/ClipStack.app && codesign --force --deep --sign - /Applications/ClipStack.app
 ```
 
-El instalador compila, copia la app a Aplicaciones y la abre. Además deja `build/ClipStack.dmg`: ábrelo y arrastra ClipStack a Aplicaciones (sirve para reinstalar o pasarla a otro Mac).
+## Permiso de Accesibilidad
+Ajustes del Sistema → Privacidad y seguridad → **Accesibilidad** → activa ClipStack (si no aparece, añádelo con **+**).
 
-La primera vez, macOS pide permiso de **Accesibilidad** (Ajustes del Sistema → Privacidad y seguridad → Accesibilidad). Sirve solo para pegar automáticamente; sin él, el elemento queda copiado y pegas tú con ⌘V.
+Hace falta para dos cosas:
+- **El atajo global.** macOS 15+ no deja usar atajos con solo ⌥ o ⇧⌥ sin este permiso. La app lo detecta sola en unos segundos, sin reiniciarla.
+- **Pegar automáticamente.** Sin el permiso, el elemento elegido queda copiado y lo pegas tú con ⌘V.
+
+Cada vez que recompilas cambia la firma, así que macOS vuelve a pedir el permiso.
 
 ## Uso
-> El atajo funciona con el permiso de **Accesibilidad**. Sin él, macOS 15+ no deja usar atajos solo con ⌥ o ⇧⌥.
+- **⇧⌥V** (por defecto; cámbialo en el engranaje): abre el selector rápido. El panel se queda abierto: muévete con ← → (o volviendo a pulsar el atajo), pega con 1-9, Intro o clic, y cierra con Esc o la X.
+- **Icono de la barra de menú**: lista completa con buscador. Clic en un elemento = copiarlo. Engranaje = ajustes (guardar 5/10/15/20, atajo, pausa, abrir al iniciar sesión).
 
-- **⇧⌥V** (por defecto; cámbialo en el engranaje, es libre): abre el selector rápido. El panel se queda abierto: muévete con ← → (o volviendo a pulsar el atajo), pega con 1-9, Intro o clic, y cierra con Esc o la X.
-- **Icono de la barra de menú**: lista completa con buscador. Clic en un elemento = copiarlo. Engranaje = ajustes (5/10/15/20, atajo, pausa, abrir al iniciar).
+El historial se guarda en `~/Library/Application Support/ClipStack/`. Se ignoran las copias marcadas como sensibles (gestores de contraseñas).
 
-Historial guardado en `~/Library/Application Support/ClipStack/`. Se ignoran copias marcadas como sensibles (gestores de contraseñas).
-
-## Desinstalar
-Doble clic (o clic derecho → Abrir) en **Desinstalar ClipStack.command**. Borra la app, el historial, los ajustes y el permiso de Accesibilidad.
-Para actualizar no hace falta: el instalador ya sustituye la versión anterior.
+## Estructura
+- `Sources/ClipStack/`: código Swift (SwiftUI + AppKit).
+- `build.sh`: compila y genera `build/ClipStack.app` y `build/ClipStack.dmg`.
+- `Info.plist`: metadatos de la app (app de barra de menú, sin icono en el Dock).
