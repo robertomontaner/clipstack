@@ -2,10 +2,22 @@
 
 Gestor de portapapeles para macOS 13+ (texto e imágenes), en la barra de menú.
 
-## Requisitos
+## Descargar (sin compilar)
+En [Releases](https://github.com/robertomontaner/clipstack/releases) está el último **ClipStack.dmg**: ábrelo y arrastra ClipStack a Aplicaciones.
+Como no está firmada con cuenta de desarrollador de Apple, la primera vez macOS puede bloquearla: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**, o `xattr -cr /Applications/ClipStack.app`.
+
+## Publicar una versión nueva
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+GitHub Actions compila en un Mac y adjunta el DMG a la Release (tarda unos 3 minutos). También se puede lanzar a mano desde la pestaña **Actions** → *Release DMG* → *Run workflow*.
+
+## Compilar tú mismo
+
+### Requisitos
 Herramientas de desarrollo de Apple (gratis). Si no las tienes, los scripts abren su instalador; también puedes ejecutar `xcode-select --install`.
 
-## Instalar
+### Instalar
 ```bash
 git clone https://github.com/robertomontaner/clipstack.git
 cd clipstack
@@ -22,7 +34,7 @@ Para actualizar: `git pull` y vuelve a ejecutar el instalador (o el DMG). No hac
 
 El DMG de `build/` sirve para pasar la app a otro Mac sin compilar.
 
-### Si macOS bloquea un script o la app
+#### Si macOS bloquea un script o la app
 Si te sale un aviso de seguridad, haz clic derecho → **Abrir**. Si sigue bloqueado:
 ```bash
 xattr -cr ~/ruta/a/clipstack
@@ -50,4 +62,5 @@ El historial se guarda en `~/Library/Application Support/ClipStack/`. Se ignoran
 ## Estructura
 - `Sources/ClipStack/`: código Swift (SwiftUI + AppKit).
 - `build.sh`: compila y genera `build/ClipStack.app` y `build/ClipStack.dmg`.
+- `.github/workflows/release.yml`: compila y publica el DMG en Releases al subir un tag.
 - `Info.plist`: metadatos de la app (app de barra de menú, sin icono en el Dock).

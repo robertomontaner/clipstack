@@ -1,0 +1,47 @@
+name: Release DMG
+
+# Al subir un tag vX.Y.Z (o lanzarlo a mano), compila en macOS y adjunta el DMG a la Release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de la versión (ej. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versión desde el tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" Info.plist
+
+      - name: Compilar app y DMG
+        run: bash ./build.sh
+
+      - name: Publicar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ClipStack ${{ env.TAG }}
+          files: build/ClipStack.dmg
+          generate_release_notes: true
+          body: |
+            Abre el DMG y arrastra **ClipStack** a **Aplicaciones**.
+
+            La app no está firmada con cuenta de desarrollador de Apple. Si macOS no deja abrirla:
+            Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**, o en la Terminal:
+            ```
+            xattr -cr /Applications/ClipStack.app
+            ```
