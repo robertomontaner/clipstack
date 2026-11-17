@@ -1,0 +1,22 @@
+name: Compilar
+
+# Compila en cada push (sin publicar nada) para detectar errores pronto.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar
+        run: |
+          set -o pipefail
+          bash ./build.sh 2>&1 | tee build.log || {
+            # Convierte "archivo:línea:col: error: msg" en anotaciones de GitHub
+            grep -E "^/.*:[0-9]+:[0-9]+: error:" build.log | sort -u | head -40 | \
+              sed -E "s#^$PWD/##; s#^([^:]+):([0-9]+):([0-9]+): error: (.*)#::error file=\1,line=\2,col=\3::\4#"
+            exit 1
+          }

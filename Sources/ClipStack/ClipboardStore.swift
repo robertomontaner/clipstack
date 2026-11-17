@@ -31,6 +31,20 @@ final class ClipboardStore: ObservableObject {
     /// Mientras se graba un atajo nuevo, el atajo actual se desactiva.
     @Published var isRecordingShortcut = false
 
+    /// Apps desde las que no se guarda nada (bundle IDs).
+    @Published var excludedApps: [String] {
+        didSet { UserDefaults.standard.set(excludedApps, forKey: "excludedApps") }
+    }
+
+    static let defaultExcluded = [
+        "com.apple.keychainaccess", "com.apple.Passwords",
+        "com.1password.1password", "com.agilebits.onepassword7",
+        "com.bitwarden.desktop", "com.lastpass.LastPass", "com.dashlane.dashlanephonefinal"
+    ]
+
+    /// Fijados primero (por recencia) y luego el resto.
+    var displayItems: [ClipItem] { items.filter(\.pinned) + items.filter { !$0.pinned } }
+
     private let pb = NSPasteboard.general
     private var lastChange: Int
     private var timer: Timer?
@@ -55,6 +69,7 @@ final class ClipboardStore: ObservableObject {
         } else {
             shortcut = Shortcut.default
         }
+        excludedApps = UserDefaults.standard.stringArray(forKey: "excludedApps") ?? ClipboardStore.defaultExcluded
 
         let base = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -84,10 +99,19 @@ final class ClipboardStore: ObservableObject {
 
         let types = pb.types ?? []
         if types.contains(where: { ignoredTypes.contains($0.rawValue) }) { return }
+        if let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           excludedApps.contains(front) { return }
 
-        if let s = pb.string(forType: .string),
-           !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            add(text: s)
+        // Archivos de Finder primero (Finder también pone el nombre como texto y un icono).
+        if let urls = pb.readObjects(forClasses: [NSURL.self],
+                                     options: [.urlReadingFileURLsOnly: true]) as? [URL],
+           !urls.isEmpty {
+            add(files: urls.map(\.path))
+        } else if let s = pb.string(forType: .string),
+                  !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            var rtf = pb.data(forType: .rtf)
+            if let r = rtf, r.count > 1_000_000 { rtf = nil }   // no guardamos formatos enormes
+            add(text: s, rtf: rtf)
         } else if let png = currentImagePNG() {
             add(imagePNG: png)
         }
@@ -103,9 +127,14 @@ final class ClipboardStore: ObservableObject {
 
     // MARK: - Alta, baja y orden
 
-    private func add(text: String) {
-        insert(ClipItem(kind: .text, text: text, imageFile: nil,
+    private func add(text: String, rtf: Data?) {
+        insert(ClipItem(kind: .text, text: text, rtf: rtf,
                         hash: Self.sha(Data(text.utf8)), date: Date()))
+    }
+
+    private func add(files: [String]) {
+        insert(ClipItem(kind: .file, filePaths: files,
+                        hash: Self.sha(Data(("files:" + files.joined(separator: "\n")).utf8)), date: Date()))
     }
 
     private func add(imagePNG: Data) {
@@ -113,7 +142,7 @@ final class ClipboardStore: ObservableObject {
         if let idx = items.firstIndex(where: { $0.hash == h }) { bump(idx); return }
         let name = UUID().uuidString + ".png"
         do { try imagePNG.write(to: imagesDir.appendingPathComponent(name)) } catch { return }
-        insert(ClipItem(kind: .image, text: nil, imageFile: name, hash: h, date: Date()))
+        insert(ClipItem(kind: .image, imageFile: name, hash: h, date: Date()))
     }
 
     private func insert(_ item: ClipItem) {
@@ -131,10 +160,19 @@ final class ClipboardStore: ObservableObject {
         save()
     }
 
+    /// Los fijados no cuentan para el límite ni se borran solos.
     private func trim() {
-        while items.count > limit {
-            deleteFile(items.removeLast())
+        while items.filter({ !$0.pinned }).count > limit,
+              let idx = items.lastIndex(where: { !$0.pinned }) {
+            deleteFile(items.remove(at: idx))
         }
+    }
+
+    func togglePin(_ item: ClipItem) {
+        guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[idx].pinned.toggle()
+        trim()
+        save()
     }
 
     func remove(_ item: ClipItem) {
@@ -143,28 +181,45 @@ final class ClipboardStore: ObservableObject {
         save()
     }
 
+    /// Borra el historial; los fijados se conservan.
     func clear() {
-        for it in items { deleteFile(it) }
-        items = []
+        for it in items where !it.pinned { deleteFile(it) }
+        items = items.filter(\.pinned)
         save()
     }
 
     // MARK: - Uso de un elemento
 
     /// Pone el elemento en el portapapeles del sistema y lo sube al primer puesto.
-    func copyToPasteboard(_ item: ClipItem) {
+    /// - plain: solo texto, sin estilos.
+    func copyToPasteboard(_ item: ClipItem, plain: Bool = false) {
         pb.clearContents()
         switch item.kind {
         case .text:
+            if !plain, let rtf = item.rtf {
+                pb.declareTypes([.rtf, .string], owner: nil)
+                pb.setData(rtf, forType: .rtf)
+            }
             pb.setString(item.text ?? "", forType: .string)
         case .image:
             if let f = item.imageFile,
                let img = NSImage(contentsOf: imagesDir.appendingPathComponent(f)) {
                 pb.writeObjects([img])
             }
+        case .file:
+            let urls = (item.filePaths ?? []).map { URL(fileURLWithPath: $0) as NSURL }
+            if plain {
+                pb.setString((item.filePaths ?? []).joined(separator: "\n"), forType: .string)
+            } else {
+                pb.writeObjects(urls)
+            }
         }
         lastChange = pb.changeCount   // para que no se registre como copia nueva
         if let idx = items.firstIndex(where: { $0.id == item.id }) { bump(idx) }
+    }
+
+    func imageURL(for item: ClipItem) -> URL? {
+        item.imageFile.map { imagesDir.appendingPathComponent($0) }
     }
 
     func thumbnail(for item: ClipItem) -> NSImage? {
@@ -193,7 +248,7 @@ final class ClipboardStore: ObservableObject {
         guard let d = try? Data(contentsOf: indexURL),
               let arr = try? JSONDecoder().decode([ClipItem].self, from: d) else { return }
         items = arr.filter { it in
-            if it.kind == .text { return true }
+            if it.kind != .image { return true }
             guard let f = it.imageFile else { return false }
             return FileManager.default.fileExists(atPath: imagesDir.appendingPathComponent(f).path)
         }

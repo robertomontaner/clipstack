@@ -47,7 +47,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
 
+        // Aviso de actualización: cambia el icono de la barra de menú.
+        UpdateChecker.shared.$available
+            .sink { [weak self] release in self?.setStatusIcon(updateAvailable: release != nil) }
+            .store(in: &cancellables)
+        UpdateChecker.shared.start()
+
         Paster.ensureAccessibility(prompt: true)
+    }
+
+    private func setStatusIcon(updateAvailable: Bool) {
+        guard let button = statusItem.button else { return }
+        let name = updateAvailable ? "arrow.down.doc" : "doc.on.clipboard"
+        let img = NSImage(systemSymbolName: name, accessibilityDescription: "ClipStack")
+        img?.isTemplate = true
+        button.image = img
+        button.toolTip = updateAvailable ? "ClipStack: hay una versión nueva" : "ClipStack"
     }
 
     /// Intenta primero el event tap (admite ⇧⌥V, ⌥V…). Si aún no hay permiso de

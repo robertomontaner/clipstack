@@ -10,6 +10,18 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp .build/release/ClipStack "$APP/Contents/MacOS/ClipStack"
 cp Info.plist "$APP/Contents/Info.plist"
+
+# Icono: Resources/AppIcon.png (1024px) -> AppIcon.icns
+if [ -f Resources/AppIcon.png ]; then
+    ICONSET="build/AppIcon.iconset"
+    rm -rf "$ICONSET"; mkdir -p "$ICONSET" "$APP/Contents/Resources"
+    for s in 16 32 128 256 512; do
+        sips -z $s $s Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+        sips -z $((s*2)) $((s*2)) Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+    done
+    iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+    rm -rf "$ICONSET"
+fi
 codesign --force --sign - "$APP"
 
 # DMG con "arrastrar a Aplicaciones"
