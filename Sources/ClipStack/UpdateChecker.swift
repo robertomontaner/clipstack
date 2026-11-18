@@ -68,9 +68,95 @@ final class UpdateChecker: ObservableObject {
         }
     }
 
-    func download() {
+    /// Abre la página de la Release (novedades / descarga manual).
+    func openReleasePage() {
         guard let r = available else { return }
-        NSWorkspace.shared.open(r.dmg ?? r.page)
+        NSWorkspace.shared.open(r.page)
+    }
+
+    // MARK: - Instalación automática
+
+    @Published private(set) var installing = false
+
+    /// Descarga el DMG, sustituye la app instalada, quita la cuarentena y la vuelve a abrir.
+    /// Si algo no se puede hacer (sin DMG, carpeta sin permisos), abre la descarga para hacerlo a mano.
+    func installUpdate() {
+        guard let r = available, !installing else { return }
+        guard let dmg = r.dmg, Self.isTrustedHost(dmg) else { NSWorkspace.shared.open(r.page); return }
+
+        let dest = Bundle.main.bundleURL
+        guard dest.pathExtension == "app",
+              FileManager.default.isWritableFile(atPath: dest.deletingLastPathComponent().path) else {
+            status = "No tengo permiso para escribir en \(dest.deletingLastPathComponent().path). Descárgala a mano."
+            NSWorkspace.shared.open(dmg)
+            return
+        }
+
+        installing = true
+        status = "Descargando v\(r.version)…"
+        URLSession.shared.downloadTask(with: dmg) { tmp, response, _ in
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            var saved: URL?
+            if ok, let tmp {
+                let dir = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("ClipStackUpdate-\(UUID().uuidString)", isDirectory: true)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let target = dir.appendingPathComponent("ClipStack.dmg")
+                if (try? FileManager.default.moveItem(at: tmp, to: target)) != nil { saved = target }
+            }
+            let file = saved
+            Task { @MainActor in self.runInstaller(dmg: file, dest: dest, version: r.version) }
+        }.resume()
+    }
+
+    private func runInstaller(dmg: URL?, dest: URL, version: String) {
+        guard let dmg else {
+            installing = false
+            status = "No se pudo descargar la actualización"
+            return
+        }
+        status = "Instalando v\(version)…"
+
+        // Script que espera a que ClipStack se cierre, cambia la app y la reabre.
+        let script = """
+        #!/bin/bash
+        DMG="$1"; DEST="$2"; PID="$3"
+        MNT=$(mktemp -d /tmp/clipstack-mnt.XXXXXX)
+        if ! hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MNT" -quiet; then open "$DMG"; exit 1; fi
+        if [ ! -d "$MNT/ClipStack.app" ]; then hdiutil detach "$MNT" -quiet; open "$DMG"; exit 1; fi
+        while kill -0 "$PID" 2>/dev/null; do sleep 0.2; done
+        rm -rf "$DEST.old"
+        mv "$DEST" "$DEST.old"
+        if ditto "$MNT/ClipStack.app" "$DEST"; then
+          rm -rf "$DEST.old"
+          xattr -cr "$DEST" 2>/dev/null
+          tccutil reset Accessibility com.roberto.clipstack >/dev/null 2>&1
+        else
+          rm -rf "$DEST"; mv "$DEST.old" "$DEST"
+        fi
+        hdiutil detach "$MNT" -quiet
+        rm -rf "$(dirname "$DMG")"
+        open "$DEST" --args --updated
+        """
+        let scriptURL = dmg.deletingLastPathComponent().appendingPathComponent("install.sh")
+        do {
+            try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/bin/bash")
+            p.arguments = [scriptURL.path, dmg.path, dest.path, String(ProcessInfo.processInfo.processIdentifier)]
+            try p.run()
+        } catch {
+            installing = false
+            status = "No se pudo instalar; abriendo el DMG"
+            NSWorkspace.shared.open(dmg)
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+    }
+
+    private static func isTrustedHost(_ url: URL) -> Bool {
+        guard url.scheme == "https", let host = url.host?.lowercased() else { return false }
+        return host == "github.com" || host.hasSuffix(".githubusercontent.com")
     }
 
     /// Compara versiones tipo 1.2.10 numéricamente.

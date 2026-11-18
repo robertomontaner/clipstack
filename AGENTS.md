@@ -44,6 +44,7 @@ Si quieres acumular cambios sin publicar, haz push a `main` sin tocar la versió
 ## Notas técnicas
 - **Atajo global:** se escucha con `CGEventTap` (`EventTapHotKey`), que necesita el permiso de Accesibilidad. No lo sustituyas solo por Carbon `RegisterEventHotKey`: desde macOS 15 Carbon rechaza los atajos con solo ⌥ o ⇧⌥, como el ⇧⌥V por defecto. Carbon solo sirve de reserva mientras no hay permiso.
 - **Historial:** se guarda en `~/Library/Application Support/ClipStack/history.json` (las imágenes, en `images/`). Los campos nuevos de `ClipItem` deben decodificarse con `decodeIfPresent` y un valor por defecto, para no romper el historial de versiones anteriores.
+- **Auto-actualización** (`UpdateChecker.installUpdate`): descarga el primer asset `.dmg` de la última Release, lo monta y copia `ClipStack.app` sobre la app instalada. Después quita la cuarentena, resetea el permiso de Accesibilidad y relanza la app con `--updated`, que abre `PermissionGuide`. Por eso el DMG debe tener `ClipStack.app` en su raíz y llamarse `*.dmg`. No cambies `build.sh` sin mantener eso.
 - **Firma:** la app no está firmada con cuenta de desarrollador; `build.sh` firma ad-hoc. Cada compilación cambia la firma y macOS vuelve a pedir el permiso de Accesibilidad.
 - **Icono:** `Resources/AppIcon.png` (1024 px); `build.sh` genera el `.icns`.
 - **Idioma:** textos de la interfaz en español.

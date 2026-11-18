@@ -53,7 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
         UpdateChecker.shared.start()
 
-        Paster.ensureAccessibility(prompt: true)
+        // Asistente de permisos: tras actualizar, o si falta el permiso de Accesibilidad.
+        let updated = CommandLine.arguments.contains("--updated")
+        PermissionGuide.shared.justUpdated = updated
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            if updated { PermissionGuide.shared.show() } else { PermissionGuide.shared.showIfNeeded() }
+        }
     }
 
     private func setStatusIcon(updateAvailable: Bool) {

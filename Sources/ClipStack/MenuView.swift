@@ -33,7 +33,10 @@ struct MenuView: View {
                     Image(systemName: "arrow.down.circle.fill").foregroundColor(.accentColor)
                     Text("Nueva versión v\(r.version) disponible").font(.system(size: 12, weight: .medium))
                     Spacer()
-                    Button("Descargar") { updates.download(); onClose() }
+                    Button("Novedades") { updates.openReleasePage(); onClose() }
+                        .buttonStyle(.link)
+                    Button(updates.installing ? "Instalando…" : "Actualizar ahora") { updates.installUpdate() }
+                        .disabled(updates.installing)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(Color.accentColor.opacity(0.12))
@@ -135,13 +138,9 @@ struct MenuView: View {
                     Text(accessibilityOK ? "Atajo y pegado automático activos" : "Falta permiso de Accesibilidad (atajo y pegado)")
                         .font(.caption)
                     Spacer()
-                    if !accessibilityOK {
-                        Button("Conceder") {
-                            Paster.ensureAccessibility(prompt: true)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                accessibilityOK = Paster.ensureAccessibility(prompt: false)
-                            }
-                        }
+                    Button(accessibilityOK ? "Asistente" : "Configurar") {
+                        onClose()
+                        PermissionGuide.shared.show()
                     }
                 }
 
@@ -153,7 +152,8 @@ struct MenuView: View {
                         }
                         .disabled(updates.checking)
                         if updates.available != nil {
-                            Button("Descargar") { updates.download() }
+                            Button(updates.installing ? "Instalando…" : "Actualizar ahora") { updates.installUpdate() }
+                                .disabled(updates.installing)
                         }
                     }
                     if !updates.status.isEmpty {

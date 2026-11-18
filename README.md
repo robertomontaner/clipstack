@@ -95,7 +95,20 @@ Los elementos **fijados** salen primero, no cuentan para el límite y se conserv
 - El historial se guarda en `~/Library/Application Support/ClipStack/`.
 
 ### Actualizaciones
-La app consulta las Releases de GitHub al arrancar y cada 24 h. Si hay una versión nueva, el icono de la barra cambia y aparece un aviso con **Descargar**.
+La app consulta las Releases de GitHub al arrancar y cada 24 h. Si hay una versión nueva, el icono de la barra cambia y aparece un aviso.
+
+Al pulsar **Actualizar ahora**, ClipStack hace todo solo:
+1. descarga el DMG;
+2. sustituye la app;
+3. quita la cuarentena de macOS;
+4. se vuelve a abrir.
+
+Después se abre el **asistente de permisos**, porque cada versión cambia la firma y macOS pide otra vez la Accesibilidad.
+
+### Asistente de permisos
+Se abre solo la primera vez, si falta el permiso de Accesibilidad, y tras cada actualización. También está en Engranaje → **Configurar**/**Asistente**. Abre el panel correcto de Ajustes, explica qué activar y detecta solo cuándo has dado el permiso.
+
+Solo la **primera instalación** desde el navegador necesita desbloquear la app a mano (Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**). Las actualizaciones posteriores, hechas desde la propia app, ya no.
 
 ## Estructura
 - `Sources/ClipStack/`: código Swift (SwiftUI + AppKit).
