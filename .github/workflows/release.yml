@@ -24,6 +24,10 @@ jobs:
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+          PLIST=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
+          if [ "$PLIST" != "$VERSION" ]; then
+            echo "::warning file=Info.plist::El tag $TAG no coincide con CFBundleShortVersionString=$PLIST. Actualiza Info.plist (ver AGENTS.md)."
+          fi
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" Info.plist
 

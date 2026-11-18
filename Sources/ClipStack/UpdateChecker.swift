@@ -47,7 +47,8 @@ final class UpdateChecker: ObservableObject {
                     .flatMap { ($0["browser_download_url"] as? String).flatMap(URL.init(string:)) }
                 found = Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, page: page, dmg: dmg)
             }
-            Task { @MainActor in self.finish(found, code: code, manual: manual) }
+            let result = found
+            Task { @MainActor in self.finish(result, code: code, manual: manual) }
         }.resume()
     }
 

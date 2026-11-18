@@ -7,8 +7,10 @@ En [Releases](https://github.com/robertomontaner/clipstack/releases) está el ú
 Como no está firmada con cuenta de desarrollador de Apple, la primera vez macOS puede bloquearla: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**, o `xattr -cr /Applications/ClipStack.app`.
 
 ## Publicar una versión nueva
+1. Sube la versión en `Info.plist`: `CFBundleShortVersionString` (ej. `2.1.0`) y `CFBundleVersion` (+1). Es la que usa la app para saber si hay actualización.
+2. Haz commit en `main` y sube el tag con la misma versión:
 ```bash
-git tag v1.1.0 && git push origin v1.1.0
+git tag v2.1.0 && git push origin v2.1.0
 ```
 GitHub Actions compila en un Mac y adjunta el DMG a la Release (tarda unos 3 minutos). También se puede lanzar a mano desde la pestaña **Actions** → *Release DMG* → *Run workflow*.
 
@@ -54,13 +56,53 @@ Hace falta para dos cosas:
 Cada vez que recompilas cambia la firma, así que macOS vuelve a pedir el permiso.
 
 ## Uso
-- **⇧⌥V** (por defecto; cámbialo en el engranaje): abre el selector rápido. El panel se queda abierto: muévete con ← → (o volviendo a pulsar el atajo), pega con 1-9, Intro o clic, y cierra con Esc o la X.
-- **Icono de la barra de menú**: lista completa con buscador. Clic en un elemento = copiarlo. Engranaje = ajustes (guardar 5/10/15/20, atajo, pausa, abrir al iniciar sesión).
 
-El historial se guarda en `~/Library/Application Support/ClipStack/`. Se ignoran las copias marcadas como sensibles (gestores de contraseñas).
+### Selector rápido (⇧⌥V)
+El atajo se cambia en el engranaje. El panel se queda abierto hasta que pegas o lo cierras.
+
+| Tecla | Acción |
+|---|---|
+| ← → o el atajo otra vez | Moverse |
+| 1-9 / Intro / clic | Pegar |
+| ⇧ + 1-9 / ⇧ + Intro / ⇧ + clic | Pegar **sin formato** |
+| Escribir | Filtrar (⌫ borra) |
+| Espacio | Vista previa grande |
+| ⌘P | Fijar / desfijar |
+| Esc o la X | Cerrar (o borrar la búsqueda) |
+
+### Menú de la barra superior
+- Lista completa con buscador. Clic copia; ⇧ + clic copia sin formato.
+- Al pasar el ratón: 👁 vista previa (también con una pulsación larga), 📌 fijar y 🗑 eliminar.
+- Engranaje → ajustes:
+  - cuántos guardar (5/10/15/20);
+  - atajo;
+  - apps excluidas;
+  - pausar la captura;
+  - abrir al iniciar sesión;
+  - buscar actualizaciones.
+
+### Qué guarda
+- **Texto**, con su formato original (se pega con formato, o sin él usando ⇧).
+- **Enlaces**: muestran el dominio.
+- **Colores** (`#hex`, `rgb()`): muestran una muestra del color.
+- **Imágenes**.
+- **Archivos** copiados en Finder: se pegan como archivos.
+
+Los elementos **fijados** salen primero, no cuentan para el límite y se conservan al borrar el historial.
+
+### Privacidad
+- No se guarda nada copiado en las **apps excluidas**: por defecto Llavero, Contraseñas, 1Password, Bitwarden, LastPass y Dashlane. La lista se edita en ajustes.
+- También se ignoran las copias que otras apps marcan como sensibles.
+- El historial se guarda en `~/Library/Application Support/ClipStack/`.
+
+### Actualizaciones
+La app consulta las Releases de GitHub al arrancar y cada 24 h. Si hay una versión nueva, el icono de la barra cambia y aparece un aviso con **Descargar**.
 
 ## Estructura
 - `Sources/ClipStack/`: código Swift (SwiftUI + AppKit).
 - `build.sh`: compila y genera `build/ClipStack.app` y `build/ClipStack.dmg`.
+- `.github/workflows/build.yml`: compila en cada push (comprobación).
 - `.github/workflows/release.yml`: compila y publica el DMG en Releases al subir un tag.
-- `Info.plist`: metadatos de la app (app de barra de menú, sin icono en el Dock).
+- `Resources/AppIcon.png`: icono de la app.
+- `Info.plist`: metadatos de la app, incluida la versión (app de barra de menú, sin icono en el Dock).
+- `AGENTS.md`: reglas para IAs y personas: cómo versionar, publicar y hacer commits.
