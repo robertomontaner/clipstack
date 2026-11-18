@@ -9,34 +9,32 @@ ClipStack: gestor de portapapeles para macOS 13+, app de barra de menú en Swift
 - `Info.plist`: metadatos de la app, **incluida la versión**.
 - `build.sh`: compila y genera `build/ClipStack.app` y `build/ClipStack.dmg`.
 - `.github/workflows/build.yml`: compila en cada push (no publica nada).
-- `.github/workflows/release.yml`: publica el DMG en Releases al subir un tag `vX.Y.Z`.
+- `.github/workflows/release.yml`: publica sola la Release con el DMG cuando llega a `main` una versión nueva en `Info.plist`.
 
 ## Versiones y actualizaciones (OBLIGATORIO)
 
 La app comprueba sola si hay versión nueva (`UpdateChecker.swift`): compara su versión, `CFBundleShortVersionString` de `Info.plist`, con el tag de la última Release de GitHub. Para que el aviso funcione:
 
-1. **Toda versión nueva actualiza `Info.plist`** en el mismo commit que la prepara:
+1. **Publicar una versión = subir la versión en `Info.plist` y hacer push a `main`.** Nada más.
    - `CFBundleShortVersionString`: versión semántica sin "v" (ej. `2.1.0`).
    - `CFBundleVersion`: entero que siempre sube en 1 (ej. de `2` a `3`).
-2. **El tag es la misma versión con "v"**: `CFBundleShortVersionString = 2.1.0` → tag `v2.1.0`.
-3. Publicar = subir el tag **después** del commit del cambio de versión:
-   ```bash
-   git tag v2.1.0 && git push origin v2.1.0
-   ```
-   Hacer push a `main` no publica nada; solo el tag crea la Release con el DMG.
+2. El workflow *Release DMG* ve el cambio en `Info.plist`. Si el tag `v<versión>` no existe, compila, **crea el tag él mismo** y publica la Release con `ClipStack.dmg`. Tarda unos 3 minutos.
+3. **No crees tags a mano.** Si la versión de `Info.plist` ya está publicada, el workflow no hace nada. Así, los push sin cambio de versión nunca publican.
 4. Versionado semántico:
    - `X.0.0`: cambios grandes o que rompen algo.
    - `x.Y.0`: funciones nuevas.
    - `x.y.Z`: arreglos.
-5. Nunca reutilices ni muevas un tag ya publicado: si algo sale mal, sube el siguiente parche.
-6. El workflow de Release fuerza en la app compilada la versión del tag. Si no coincide con `Info.plist`, avisa en el log. Aun así, mantén siempre `Info.plist` al día, porque es la versión que usan las compilaciones locales.
+5. Nunca bajes la versión ni reutilices una publicada: si algo sale mal, sube el siguiente parche.
+6. Sube la versión **en el mismo push** que trae los cambios que la justifican, no antes. En cuanto llega a `main`, se publica.
 7. Al añadir funciones, actualiza también el `README.md`.
 
 Checklist para sacar una versión:
-- [ ] `Info.plist`: `CFBundleShortVersionString` y `CFBundleVersion` subidos.
+- [ ] Cambios hechos y compilando (`bash ./build.sh` o el workflow *Compilar* en verde en tu rama).
 - [ ] `README.md` al día si hay cambios visibles.
-- [ ] Compila (`bash ./build.sh` o el workflow *Compilar* en verde).
-- [ ] Commit en `main`, luego tag `vX.Y.Z` igual a `Info.plist`, y push del tag.
+- [ ] `Info.plist`: `CFBundleShortVersionString` y `CFBundleVersion` subidos.
+- [ ] Push a `main`. Comprueba en *Actions* que *Release DMG* termina en verde y que la Release aparece.
+
+Si quieres acumular cambios sin publicar, haz push a `main` sin tocar la versión: no se publica nada hasta que la subas.
 
 ## Commits
 - Autor: **solo el dueño del repositorio** (Roberto Montaner, con su identidad de git configurada).

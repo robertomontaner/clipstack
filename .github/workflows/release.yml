@@ -1,48 +1,62 @@
 name: Release DMG
 
-# Al subir un tag vX.Y.Z (o lanzarlo a mano), compila en macOS y adjunta el DMG a la Release.
+# Publica sola una Release cuando cambia la versión de Info.plist en main:
+# si el tag vX.Y.Z de esa versión aún no existe, compila, crea el tag y adjunta el DMG.
+# También se puede lanzar a mano (Actions → Release DMG → Run workflow).
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths:
+      - Info.plist
+      - .github/workflows/release.yml
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag de la versión (ej. v1.0.0)"
-        required: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  build:
+  release:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Versión desde el tag
+      - name: Leer versión y comprobar si ya está publicada
+        id: version
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          PLIST=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
-          if [ "$PLIST" != "$VERSION" ]; then
-            echo "::warning file=Info.plist::El tag $TAG no coincide con CFBundleShortVersionString=$PLIST. Actualiza Info.plist (ver AGENTS.md)."
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.plist)
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$TAG ya está publicada. Para sacar una versión nueva, sube CFBundleShortVersionString en Info.plist (ver AGENTS.md)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Nueva versión: $TAG"
           fi
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" Info.plist
 
       - name: Compilar app y DMG
+        if: steps.version.outputs.exists == 'false'
         run: bash ./build.sh
 
       - name: Publicar Release
+        if: steps.version.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.TAG }}
-          name: ClipStack ${{ env.TAG }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ClipStack ${{ steps.version.outputs.tag }}
           files: build/ClipStack.dmg
           generate_release_notes: true
+          make_latest: true
           body: |
-            Abre el DMG y arrastra **ClipStack** a **Aplicaciones**.
+            Abre el DMG y arrastra **ClipStack** a **Aplicaciones** (sustituye la versión anterior).
 
             La app no está firmada con cuenta de desarrollador de Apple. Si macOS no deja abrirla:
             Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**, o en la Terminal:

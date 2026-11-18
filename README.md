@@ -7,12 +7,11 @@ En [Releases](https://github.com/robertomontaner/clipstack/releases) está el ú
 Como no está firmada con cuenta de desarrollador de Apple, la primera vez macOS puede bloquearla: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**, o `xattr -cr /Applications/ClipStack.app`.
 
 ## Publicar una versión nueva
-1. Sube la versión en `Info.plist`: `CFBundleShortVersionString` (ej. `2.1.0`) y `CFBundleVersion` (+1). Es la que usa la app para saber si hay actualización.
-2. Haz commit en `main` y sube el tag con la misma versión:
-```bash
-git tag v2.1.0 && git push origin v2.1.0
-```
-GitHub Actions compila en un Mac y adjunta el DMG a la Release (tarda unos 3 minutos). También se puede lanzar a mano desde la pestaña **Actions** → *Release DMG* → *Run workflow*.
+Sube la versión en `Info.plist` y haz push a `main`:
+- `CFBundleShortVersionString`, por ejemplo de `2.0.0` a `2.1.0`;
+- `CFBundleVersion`, +1.
+
+GitHub Actions lo detecta y, si esa versión no estaba publicada, compila en un Mac, crea el tag `v2.1.0` y publica la Release con el DMG (tarda unos 3 minutos). Los push que no cambian la versión no publican nada. Detalles para IAs y personas en [AGENTS.md](AGENTS.md).
 
 ## Compilar tú mismo
 
@@ -102,7 +101,7 @@ La app consulta las Releases de GitHub al arrancar y cada 24 h. Si hay una versi
 - `Sources/ClipStack/`: código Swift (SwiftUI + AppKit).
 - `build.sh`: compila y genera `build/ClipStack.app` y `build/ClipStack.dmg`.
 - `.github/workflows/build.yml`: compila en cada push (comprobación).
-- `.github/workflows/release.yml`: compila y publica el DMG en Releases al subir un tag.
+- `.github/workflows/release.yml`: publica la Release con el DMG cuando cambia la versión de `Info.plist` en `main`.
 - `Resources/AppIcon.png`: icono de la app.
 - `Info.plist`: metadatos de la app, incluida la versión (app de barra de menú, sin icono en el Dock).
 - `AGENTS.md`: reglas para IAs y personas: cómo versionar, publicar y hacer commits.
